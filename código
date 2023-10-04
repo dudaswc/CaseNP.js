@@ -1,0 +1,117 @@
+// Importar a biblioteca 'mysql2'
+const mysql = require('mysql2');
+// Express para criar endpoints
+const express = require('express');
+// Body parser para fazer um parse para JSON no body das requisições
+const bodyParser = require('body-parser');
+
+// Criando uma conexão com o servidor MySQL
+const connection = mysql.createConnection({
+  host: 'localhost',    // Nome do hostname/ip do servidor MySQL
+  user: 'root',   // Nome de usuário do MySQL
+  password: 'casenp',   // Senha do MySQL
+  database: 'niceplanet'    // Nome do banco de dados
+});
+
+// Função para criar tabelas no banco de dados
+function createTables() {
+  // Query SQL para criar a tabela 'Produtor'
+  const createProdutorTable = `
+    CREATE TABLE IF NOT EXISTS Produtor (
+      idProdutor INT AUTO_INCREMENT PRIMARY KEY,
+      nomeProdutor VARCHAR(255) NOT NULL,
+      cpfProdutor VARCHAR(11) UNIQUE NOT NULL
+    )
+  `;
+
+  // Query SQL para criar a tabela 'Propriedade'
+  const createPropriedadeTable = `
+    CREATE TABLE IF NOT EXISTS Propriedade (
+      idPropriedade INT AUTO_INCREMENT PRIMARY KEY,
+      nomePropriedade VARCHAR(255) NOT NULL,
+      cadastroRural VARCHAR(20) UNIQUE NOT NULL
+    )
+  `;
+
+  // Query SQL para criar a tabela 'Usuario'
+  const createUsuarioTable = `
+    CREATE TABLE IF NOT EXISTS Usuario (
+      idUsuario INT AUTO_INCREMENT PRIMARY KEY,
+      nomeUsuario VARCHAR(255) NOT NULL,
+      senhaUsuario VARCHAR(255) NOT NULL
+    )
+  `;
+
+  // Executando as queries SQL para criar as tabelas
+  connection.query(createProdutorTable, (err) => {
+    if (err) throw err;
+    console.log('Tabela Produtor criada');
+  });
+
+  connection.query(createPropriedadeTable, (err) => {
+    if (err) throw err;
+    console.log('Tabela Propriedade criada');
+  });
+
+  connection.query(createUsuarioTable, (err) => {
+    if (err) throw err;
+    console.log('Tabela Usuario criada');
+  });
+
+  // Fechando a conexão com o banco de dados
+  connection.end((err) => {
+    if (err) {
+      console.error('Erro ao fechar a conexão: ' + err.stack);
+      return;
+    }
+    console.log('Conexão fechada');
+  });
+}
+
+// Conectando ao banco de dados e chamando a função para criar as tabelas
+connection.connect((err) => {
+  if (err) {
+    console.error('Erro ao conectar ao MySQL: ' + err.stack);
+    return;
+  }
+  console.log('Conectado ao MySQL como ID ' + connection.threadId);
+  createTables(); // Chama a função para criar as tabelas
+}); 
+
+const app = express();
+
+// Middleware to parse JSON request bodies 
+app.use(bodyParser.json());
+
+// Endpoint de login
+app.post('/login', (req, res) => {
+  // O body da requisição tem 'nomeUsuario' e 'senhaUsuario'
+  const { nomeUsuario, senhaUsuario } = req.body;
+
+  // Se o body não tiver nome e nem senha, um erro será retornado 
+  if (!nomeUsuario || !senhaUsuario) {
+    return res.status(400).json({ message: 'Request inválida, informe nome e senha' });
+  }  
+
+  // Pesquisando no banco se existe a senha e o usuário 
+  const query = 'SELECT * FROM Usuario WHERE nomeUsuario = ? AND senhaUsuario = ?';
+
+  connection.query(query, [nomeUsuario, senhaUsuario], (err, results) => {
+    if (err) {
+      console.error('Error querying database: ' + err.stack);
+      return res.status(500).json({ message: 'Internal server error' });
+    }  
+
+    if (results.length === 0) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }  
+
+    // Se deu certo
+    res.status(200).json({ message: 'Login successful' });
+  });
+});
+
+// Start the Express.js server
+app.listen(3000, () => {
+  console.log('Server is running on port 3000');
+});
